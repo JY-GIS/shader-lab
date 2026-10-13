@@ -45,10 +45,6 @@ body,
   color: #6b7280;
 }
 
-.status {
-  font-size: 12px;
-}
-
 .cesium-container {
   width: 100%;
   height: 100%;

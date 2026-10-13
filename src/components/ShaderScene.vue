@@ -14,14 +14,14 @@ import {
   Viewer,
 } from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
-import firstColorMaterialSource from '../shaders/lesson01/firstColorMaterial.glsl?raw'
+import gradientMaterialSource from '../shaders/shader02/gradient.glsl?raw'
 
 const container = ref<HTMLDivElement | null>(null)
 let viewer: Viewer | undefined
 
 function createExperimentMaterial() {
   // ?raw 将 .glsl 文件作为普通字符串导入，而不是当作 JavaScript 执行
-  const shaderSource = firstColorMaterialSource.trim()
+  const shaderSource = gradientMaterialSource.trim()
 
   // 文件为空时继续使用内置材质，保证准备阶段仍可正常运行
   if (!shaderSource) {

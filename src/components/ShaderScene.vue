@@ -14,14 +14,14 @@ import {
   Viewer,
 } from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
-import boundaryMaterialSource from '../shaders/shader03/boundary.glsl?raw'
+import circleMaterialSource from '../shaders/shader04/circle.glsl?raw'
 
 const container = ref<HTMLDivElement | null>(null)
 let viewer: Viewer | undefined
 
 function createExperimentMaterial() {
   // ?raw 将 .glsl 文件作为普通字符串导入，而不是当作 JavaScript 执行
-  const shaderSource = boundaryMaterialSource.trim()
+  const shaderSource = circleMaterialSource.trim()
 
   // 文件为空时继续使用内置材质，保证准备阶段仍可正常运行
   if (!shaderSource) {

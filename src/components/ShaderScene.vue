@@ -14,14 +14,16 @@ import {
   Viewer,
 } from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
-import waveMaterialSource from '../shaders/shader05/wave.glsl?raw'
+import animatedWaveMaterialSource from '../shaders/shader06/animatedWave.glsl?raw'
 
 const container = ref<HTMLDivElement | null>(null)
 let viewer: Viewer | undefined
+let experimentMaterial: Material | undefined
+let removePreRenderListener: (() => void) | undefined
 
 function createExperimentMaterial() {
   // ?raw 将 .glsl 文件作为普通字符串导入，而不是当作 JavaScript 执行
-  const shaderSource = waveMaterialSource.trim()
+  const shaderSource = animatedWaveMaterialSource.trim()
 
   // 文件为空时继续使用内置材质，保证准备阶段仍可正常运行
   if (!shaderSource) {
@@ -33,6 +35,10 @@ function createExperimentMaterial() {
   return new Material({
     fabric: {
       source: shaderSource, // Fabric 使用的 Cesium Material GLSL 源码
+      // Fabric 根据初始值 0.0 将 u_time 注册为 float uniform
+      uniforms: {
+        u_time: 0.0,
+      },
     },
     translucent: true, // 允许后续通过 material.alpha 控制透明度
   })
@@ -49,8 +55,10 @@ function addExperimentArea(targetViewer: Viewer) {
   })
 
   // 创建外观：控制几何体如何渲染
+  experimentMaterial = createExperimentMaterial()
+
   const appearance = new MaterialAppearance({
-    material: createExperimentMaterial(),
+    material: experimentMaterial,
     flat: true,         // 平直着色，不计算光照，颜色更均匀
     translucent: true,  // 开启半透明，材质带 alpha 时必须设置
   })
@@ -98,13 +106,27 @@ onMounted(() => {
   viewer.scene.globe.baseColor = Color.ORANGE // 设置地球基础色为橙色（无影像底图时显示的颜色）
 
   addExperimentArea(viewer)
+
+  // performance.now() 返回毫秒；记录起点后换算为真实经过秒数。
+  const startTime = performance.now()
+  removePreRenderListener = viewer.scene.preRender.addEventListener(() => {
+    if (!experimentMaterial) return
+
+    const elapsedSeconds = (performance.now() - startTime) / 1000.0
+    experimentMaterial.uniforms.u_time = elapsedSeconds
+  })
 })
 
 onUnmounted(() => {
+  // 先解除每帧回调，避免它继续访问即将销毁的场景和材质。
+  removePreRenderListener?.()
+  removePreRenderListener = undefined
+
   if (viewer && !viewer.isDestroyed()) {
     viewer.destroy()
   }
   viewer = undefined
+  experimentMaterial = undefined
 })
 </script>
 

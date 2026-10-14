@@ -24,3 +24,4 @@
 - Shader 03：`step()`、`smoothstep()` 与颜色边界
 - Shader 04：向量距离、圆形遮罩与柔和边缘
 - Shader 05：`sin()`、`cos()`、弧度与静态周期颜色
+- Shader 06：Fabric Uniform、时间驱动条纹与事件清理

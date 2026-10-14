@@ -11,6 +11,7 @@ czm_material czm_getMaterial(czm_materialInput materialInput)
     float progress = fract(u_time / period);
     float maxRadius = 0.7;
     float radius = progress * maxRadius;
+    float fade = 1.0 - progress;
 
     float ringDistance = abs(dist - radius);
     float halfWidth = 0.02;
@@ -20,7 +21,7 @@ czm_material czm_getMaterial(czm_materialInput materialInput)
     vec3 outsideColor = vec3(0.0, 0.0, 1.0);
     vec3 insideColor = vec3(1.0, 0.0, 0.0);
     material.diffuse = mix(outsideColor, insideColor, ringMask);
-    material.alpha = 1.0;
+    material.alpha = mix(1.0, fade, ringMask);
 
     return material;
 }

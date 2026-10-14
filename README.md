@@ -26,3 +26,4 @@
 - Shader 05：`sin()`、`cos()`、弧度与静态周期颜色
 - Shader 06：Fabric Uniform、时间驱动条纹与事件清理
 - Shader 07：`fract()`、`abs()`、动态扩散圆环与 Alpha 淡出
+- Shader 08：折线纹理坐标、静态高亮段与动态流光

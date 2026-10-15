@@ -28,3 +28,4 @@
 - Shader 07：`fract()`、`abs()`、动态扩散圆环与 Alpha 淡出
 - Shader 08：折线纹理坐标、静态高亮段与动态流光
 - Shader 09：Cesium 渲染结构、Fabric Uniform 参数化与 Vue 实时控制
+- Shader 10：Cesium OSM Buildings、CustomShader 与模型局部高度渐变

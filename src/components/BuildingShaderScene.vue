@@ -11,10 +11,13 @@ import {
   Ion,
   LightingModel,
   Math as CesiumMath,
+  VaryingType,
   Viewer,
 } from 'cesium'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 import modelColorShaderSource from '../shaders/shader10/modelColor.glsl?raw'
+import vertexShaderSource from '../shaders/shader11/vertex.glsl?raw'
+import fragmentShaderSource from '../shaders/shader11/fragment.glsl?raw'
 
 const container = ref<HTMLDivElement | null>(null)
 
@@ -24,12 +27,16 @@ let buildingCustomShader: CustomShader | undefined
 let isUnmounted = false
 
 function createBuildingCustomShader() {
-  const fragmentShaderText = modelColorShaderSource.trim()
-  if (!fragmentShaderText) return undefined
+  const vertexShaderText = vertexShaderSource.trim() || undefined
+  const fragmentShaderText = fragmentShaderSource.trim() || modelColorShaderSource.trim()
 
   return new CustomShader({
     mode: CustomShaderMode.MODIFY_MATERIAL,
     lightingModel: LightingModel.UNLIT,
+    varyings: {
+      v_localHeight: VaryingType.FLOAT,
+    },
+    vertexShaderText,
     fragmentShaderText,
   })
 }
@@ -48,13 +55,14 @@ function setTeachingCamera(targetViewer: Viewer) {
 async function addOsmBuildings(targetViewer: Viewer) {
   const customShader = createBuildingCustomShader()
   const loadedTileset = await createOsmBuildingsAsync({
-    // GLSL 为空时仍显示白模，便于从 HAND 阶段开始输入。
+    // 先以白模加载；绑定 CustomShader 后在加入场景前移除 Style。
     style: new Cesium3DTileStyle({
       color: "color('#ffffff')",
     }),
     enableShowOutline: true,
     showOutline: true,
   })
+  loadedTileset.maximumScreenSpaceError = 4
 
   // CustomShader 与 Cesium3DTileStyle 不混用。
   if (customShader) {

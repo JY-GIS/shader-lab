@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import MetadataShaderScene from './components/MetadataShaderScene.vue'
+import CityAlertShaderScene from './components/CityAlertShaderScene.vue'
 </script>
 
 <template>
@@ -9,6 +9,6 @@ import MetadataShaderScene from './components/MetadataShaderScene.vue'
         <strong>Shader Lab</strong>
       </div>
     </header>
-    <MetadataShaderScene />
+    <CityAlertShaderScene />
   </main>
 </template>

@@ -19,6 +19,7 @@
 
 ## 学习进度
 
+#### Shaders
 - Shader 01：Fabric 材质、颜色与透明度
 - Shader 02：纹理坐标与颜色渐变
 - Shader 03：`step()`、`smoothstep()` 与颜色边界
@@ -32,3 +33,6 @@
 - Shader 11：CustomShader `vertexMain()`、基础顶点位移与 Varying 插值
 - Shader 12A：3D Tiles Feature 属性拾取与 Styling 分类着色
 - Shader 12B：Feature ID、Structural Metadata 与 CustomShader GPU 属性着色
+
+#### shader-demos
+- Demo 01：城市建筑 Metadata 高度分类与动态告警材质

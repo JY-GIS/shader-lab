@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import BuildingShaderScene from './components/BuildingShaderScene.vue'
+import MetadataShaderScene from './components/MetadataShaderScene.vue'
 </script>
 
 <template>
@@ -9,6 +9,6 @@ import BuildingShaderScene from './components/BuildingShaderScene.vue'
         <strong>Shader Lab</strong>
       </div>
     </header>
-    <BuildingShaderScene />
+    <MetadataShaderScene />
   </main>
 </template>

@@ -31,3 +31,4 @@
 - Shader 10：Cesium OSM Buildings、CustomShader 与模型局部高度渐变
 - Shader 11：CustomShader `vertexMain()`、基础顶点位移与 Varying 插值
 - Shader 12A：3D Tiles Feature 属性拾取与 Styling 分类着色
+- Shader 12B：Feature ID、Structural Metadata 与 CustomShader GPU 属性着色

@@ -30,3 +30,4 @@
 - Shader 09：Cesium 渲染结构、Fabric Uniform 参数化与 Vue 实时控制
 - Shader 10：Cesium OSM Buildings、CustomShader 与模型局部高度渐变
 - Shader 11：CustomShader `vertexMain()`、基础顶点位移与 Varying 插值
+- Shader 12A：3D Tiles Feature 属性拾取与 Styling 分类着色

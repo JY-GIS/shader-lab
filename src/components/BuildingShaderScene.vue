@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 
 import {
   Cartesian3,
+  Cesium3DTileFeature,
   Cesium3DTileset,
   Cesium3DTileStyle,
   createOsmBuildingsAsync,
@@ -11,6 +12,9 @@ import {
   Ion,
   LightingModel,
   Math as CesiumMath,
+  ModelFeature,
+  ScreenSpaceEventHandler,
+  ScreenSpaceEventType,
   VaryingType,
   Viewer,
 } from 'cesium'
@@ -24,7 +28,70 @@ const container = ref<HTMLDivElement | null>(null)
 let viewer: Viewer | undefined
 let buildingsTileset: Cesium3DTileset | undefined
 let buildingCustomShader: CustomShader | undefined
+let featurePickHandler: ScreenSpaceEventHandler | undefined
 let isUnmounted = false
+
+// 当前实验只启用 3D Tiles Styling，不与 CustomShader 混用。
+const useShader11Experiment = false
+
+const candidatePropertyIds = [
+  'elementId',
+  'elementType',
+  'height',
+  'cesium#estimatedHeight',
+  'building',
+] as const
+
+type InspectableFeature = Cesium3DTileFeature | ModelFeature
+
+function getValueType(value: unknown) {
+  if (value === undefined) return 'undefined'
+  if (value === null) return 'null'
+  if (Array.isArray(value)) return 'array'
+  return typeof value
+}
+
+function printFeatureProperties(feature: InspectableFeature) {
+  const featureType = feature instanceof Cesium3DTileFeature ? 'Cesium3DTileFeature' : 'ModelFeature'
+  const propertyIds = feature.getPropertyIds()
+  const properties = propertyIds.map((propertyId) => {
+    const value: unknown = feature.getProperty(propertyId)
+    return {
+      propertyId,
+      value,
+      type: getValueType(value),
+    }
+  }).filter(({ value }) => value !== undefined)
+  const candidates = candidatePropertyIds.map((propertyId) => {
+    const value: unknown = feature.getProperty(propertyId)
+    return {
+      propertyId,
+      value,
+      type: getValueType(value),
+    }
+  })
+
+  console.group(`建筑 Feature：${featureType}，ID=${feature.featureId}`)
+  console.info('当前 Feature 有值的属性：')
+  console.table(properties)
+  console.info('候选字段（缺失字段显示为 undefined）：')
+  console.table(candidates)
+  console.groupEnd()
+}
+
+function createFeaturePickHandler(targetViewer: Viewer) {
+  const handler = new ScreenSpaceEventHandler(targetViewer.scene.canvas)
+
+  handler.setInputAction((movement: ScreenSpaceEventHandler.PositionedEvent) => {
+    const picked = targetViewer.scene.pick(movement.position)
+
+    if (picked instanceof Cesium3DTileFeature || picked instanceof ModelFeature) {
+      printFeatureProperties(picked)
+    }
+  }, ScreenSpaceEventType.LEFT_CLICK)
+
+  return handler
+}
 
 function createBuildingCustomShader() {
   const vertexShaderText = vertexShaderSource.trim() || undefined
@@ -41,6 +108,21 @@ function createBuildingCustomShader() {
   })
 }
 
+function createHeightClassificationStyle() {
+  return new Cesium3DTileStyle({
+    color: {
+      // 3D Tiles Styling Language
+      // ${feature['...']} ：读取当前 Feature 的属性
+      conditions: [
+        ["!Boolean(${feature['cesium#estimatedHeight']})", "color('#808080')"],
+        ["${feature['cesium#estimatedHeight']} < 65.0", "color('#1971c2')"],
+        ["${feature['cesium#estimatedHeight']} < 90.0", "color('#ffd43b')"],
+        ['true', "color('#e03131')"],
+      ],
+    },
+  })
+}
+
 function setTeachingCamera(targetViewer: Viewer) {
   targetViewer.camera.setView({
     destination: Cartesian3.fromDegrees(-74.0186, 40.6964, 900.0),
@@ -53,12 +135,9 @@ function setTeachingCamera(targetViewer: Viewer) {
 }
 
 async function addOsmBuildings(targetViewer: Viewer) {
-  const customShader = createBuildingCustomShader()
+  const customShader = useShader11Experiment ? createBuildingCustomShader() : undefined
   const loadedTileset = await createOsmBuildingsAsync({
-    // 先以白模加载；绑定 CustomShader 后在加入场景前移除 Style。
-    style: new Cesium3DTileStyle({
-      color: "color('#ffffff')",
-    }),
+    style: createHeightClassificationStyle(),
     enableShowOutline: true,
     showOutline: true,
   })
@@ -101,6 +180,7 @@ async function initializeScene() {
   viewer = targetViewer
 
   setTeachingCamera(targetViewer)
+  featurePickHandler = createFeaturePickHandler(targetViewer)
 
   await addOsmBuildings(targetViewer)
 }
@@ -112,6 +192,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   isUnmounted = true
+
+  if (featurePickHandler && !featurePickHandler.isDestroyed()) {
+    featurePickHandler.destroy()
+  }
 
   if (viewer && !viewer.isDestroyed()) {
     // PrimitiveCollection.remove 会销毁其中的 Cesium3DTileset GPU 资源。
@@ -126,6 +210,7 @@ onUnmounted(() => {
 
   buildingCustomShader = undefined
   buildingsTileset = undefined
+  featurePickHandler = undefined
   viewer = undefined
 })
 </script>

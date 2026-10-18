@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CityAlertShaderScene from './components/CityAlertShaderScene.vue'
+import CityNightShaderScene from './components/CityNightShaderScene.vue'
 </script>
 
 <template>
@@ -9,6 +9,6 @@ import CityAlertShaderScene from './components/CityAlertShaderScene.vue'
         <strong>Shader Lab</strong>
       </div>
     </header>
-    <CityAlertShaderScene />
+    <CityNightShaderScene />
   </main>
 </template>

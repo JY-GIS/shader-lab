@@ -26,18 +26,18 @@ void main()
     // 只要上下左右的任何一个邻居，跟中心点的“身份”不一样，就说明中心点踩在了边界线上
     bool isEdge = center != left || center != right || center != bottom || center != top;
 
-float phase = fract(v_textureCoordinates.y + u_time * u_outlineSpeed);
-float distanceToBand = abs(phase - 0.5);
+    float phase = fract(v_textureCoordinates.y + u_time * u_outlineSpeed);
+    float distanceToBand = abs(phase - 0.5);
 
-float movingBand = 1.0 - smoothstep(
-    u_outlineBandWidth,
-    u_outlineBandWidth + 0.05,
-    distanceToBand
-);
+    float movingBand = 1.0 - smoothstep(
+        u_outlineBandWidth,
+        u_outlineBandWidth + 0.05,
+        distanceToBand
+    );
 
-vec3 baseOutline = u_outlineColor.rgb * 0.4;
-vec3 movingOutline = mix(baseOutline, vec3(1.0), movingBand);
-vec3 finalColor = isEdge ? movingOutline : sceneColor.rgb;
+    vec3 baseOutline = u_outlineColor.rgb * 0.4;
+    vec3 movingOutline = mix(baseOutline, vec3(1.0), movingBand);
+    vec3 finalColor = isEdge ? movingOutline : sceneColor.rgb;
 
-out_FragColor = vec4(finalColor, sceneColor.a);
+    out_FragColor = vec4(finalColor, sceneColor.a);
 }

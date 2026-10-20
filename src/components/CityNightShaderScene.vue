@@ -6,6 +6,9 @@ import {
   Cartesian2,
   Cartesian3,
   Color,
+  CustomShader,
+  CustomShaderMode,
+  LightingModel,
   Matrix4,
   Math as CesiumMath,
 
@@ -22,6 +25,8 @@ import {
   ScreenSpaceEventHandler,
   ScreenSpaceEventType,
   HeadingPitchRange,
+  UniformType,
+  VaryingType,
   Viewer,
 
   Ion,
@@ -30,6 +35,9 @@ import {
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 // 使用 Vite 的 ?raw 将后处理 GLSL 作为字符串交给 PostProcessStage。
 import movingOutlineShaderSource from '../shader-demos/demo02/movingOutline.glsl?raw'
+// 夜景窗户使用模型 CustomShader，与屏幕空间轮廓 PostProcessStage 分工独立。
+import facadeWindowsShaderSource from '../shader-demos/demo02/facadeWindows.glsl?raw'
+import facadeWindowsVertexShaderSource from '../shader-demos/demo02/facadeWindowsVertex.glsl?raw'
 
 const REEARTH_BUILDINGS_URL = 'https://buildings.reearth.land/tileset.json'
 type HighlightMode = 'off' | 'native' | 'custom'
@@ -39,6 +47,11 @@ const selectedBuilding = ref('点击建筑选择，点击空白处取消')
 const highlightMode = ref<HighlightMode>('custom')
 const outlineSpeed = ref(0.25)
 const outlineBandWidth = ref(0.12)
+const nightEnabled = ref(true)
+const windowDensity = ref(0.65)
+const windowBrightness = ref(1.2)
+const windowWidth = ref(4.0)
+const floorHeight = ref(3.0)
 
 let viewer: Viewer | undefined
 let cityTileset: Cesium3DTileset | undefined
@@ -48,6 +61,7 @@ let silhouetteStage: PostProcessStageComposite | undefined
 let customOutlineStage: PostProcessStage | undefined
 let selectedFeature: Cesium3DTileFeature | ModelFeature | undefined
 let removeOutlinePreRenderListener: (() => void) | undefined
+let facadeCustomShader: CustomShader | undefined
 let reearthCredit: Credit | undefined
 let isUnmounted = false
 
@@ -65,6 +79,37 @@ watch(outlineSpeed, (value) => {
 watch(outlineBandWidth, (value) => {
   if (customOutlineStage) {
     customOutlineStage.uniforms.u_outlineBandWidth = value
+  }
+})
+
+// Vue 参数变化时只更新 CustomShader Uniform，不重新创建 Tileset 或 Shader。
+watch(nightEnabled, (value) => {
+  if (facadeCustomShader && !facadeCustomShader.isDestroyed()) {
+    facadeCustomShader.setUniform('u_nightEnabled', value)
+  }
+})
+
+watch(windowDensity, (value) => {
+  if (facadeCustomShader && !facadeCustomShader.isDestroyed()) {
+    facadeCustomShader.setUniform('u_windowDensity', value)
+  }
+})
+
+watch(windowBrightness, (value) => {
+  if (facadeCustomShader && !facadeCustomShader.isDestroyed()) {
+    facadeCustomShader.setUniform('u_windowBrightness', value)
+  }
+})
+
+watch(windowWidth, (value) => {
+  if (facadeCustomShader && !facadeCustomShader.isDestroyed()) {
+    facadeCustomShader.setUniform('u_windowWidth', value)
+  }
+})
+
+watch(floorHeight, (value) => {
+  if (facadeCustomShader && !facadeCustomShader.isDestroyed()) {
+    facadeCustomShader.setUniform('u_floorHeight', value)
   }
 })
 
@@ -158,7 +203,51 @@ function createCustomOutline(targetViewer: Viewer) {
   customOutlineStage = stage
 
   removeOutlinePreRenderListener = targetViewer.scene.preRender.addEventListener(() => {
-    stage.uniforms.u_time = (performance.now() - startTime) / 1000.0
+    const elapsedSeconds = (performance.now() - startTime) / 1000.0
+    stage.uniforms.u_time = elapsedSeconds
+
+    if (facadeCustomShader && !facadeCustomShader.isDestroyed()) {
+      facadeCustomShader.setUniform('u_time', elapsedSeconds)
+    }
+  })
+}
+
+function createFacadeCustomShader() {
+  return new CustomShader({
+    mode: CustomShaderMode.MODIFY_MATERIAL,
+    lightingModel: LightingModel.UNLIT,
+    // Cesium 1.146 的 fragmentMain 不能直接读取 normalMC，先声明跨阶段 Varying。
+    varyings: {
+      v_normalMC: VaryingType.VEC3,
+    },
+    uniforms: {
+      u_time: {
+        type: UniformType.FLOAT,
+        value: 0.0,
+      },
+      u_nightEnabled: {
+        type: UniformType.BOOL,
+        value: nightEnabled.value,
+      },
+      u_windowDensity: {
+        type: UniformType.FLOAT,
+        value: windowDensity.value,
+      },
+      u_windowBrightness: {
+        type: UniformType.FLOAT,
+        value: windowBrightness.value,
+      },
+      u_windowWidth: {
+        type: UniformType.FLOAT,
+        value: windowWidth.value,
+      },
+      u_floorHeight: {
+        type: UniformType.FLOAT,
+        value: floorHeight.value,
+      },
+    },
+    vertexShaderText: facadeWindowsVertexShaderSource,
+    fragmentShaderText: facadeWindowsShaderSource,
   })
 }
 
@@ -187,12 +276,18 @@ async function addCityTileset(targetViewer: Viewer) {
   const loadedTileset = await Cesium3DTileset.fromUrl(REEARTH_BUILDINGS_URL, {
     maximumScreenSpaceError: 8,
   })
+  const customShader = createFacadeCustomShader()
+  loadedTileset.customShader = customShader
 
   if (isUnmounted || targetViewer.isDestroyed()) {
     loadedTileset.destroy()
+    if (!customShader.isDestroyed()) {
+      customShader.destroy()
+    }
     return
   }
 
+  facadeCustomShader = customShader
   cityTileset = targetViewer.scene.primitives.add(loadedTileset)
 }
 
@@ -255,6 +350,9 @@ onUnmounted(() => {
     if (cityTileset && !cityTileset.isDestroyed()) {
       viewer.scene.primitives.remove(cityTileset)
     }
+    if (facadeCustomShader && !facadeCustomShader.isDestroyed()) {
+      facadeCustomShader.destroy()
+    }
     if (reearthCredit) {
       viewer.creditDisplay.removeStaticCredit(reearthCredit)
     }
@@ -264,6 +362,7 @@ onUnmounted(() => {
   reearthCredit = undefined
   selectedFeature = undefined
   customOutlineStage = undefined
+  facadeCustomShader = undefined
   silhouetteStage = undefined
   edgeStage = undefined
   pickHandler = undefined
@@ -304,6 +403,33 @@ onUnmounted(() => {
             max="0.4"
             step="0.01"
           />
+        </label>
+      </div>
+
+      <div class="night-controls">
+        <label class="checkbox-row">
+          <input v-model="nightEnabled" type="checkbox" />
+          <span>程序化夜景</span>
+        </label>
+
+        <label>
+          <span>亮灯比例 {{ windowDensity.toFixed(2) }}</span>
+          <input v-model.number="windowDensity" type="range" min="0" max="1" step="0.05" />
+        </label>
+
+        <label>
+          <span>窗户亮度 {{ windowBrightness.toFixed(1) }}</span>
+          <input v-model.number="windowBrightness" type="range" min="0.2" max="3" step="0.1" />
+        </label>
+
+        <label>
+          <span>窗格宽度 {{ windowWidth.toFixed(1) }} m</span>
+          <input v-model.number="windowWidth" type="range" min="2" max="10" step="0.5" />
+        </label>
+
+        <label>
+          <span>楼层高度 {{ floorHeight.toFixed(1) }} m</span>
+          <input v-model.number="floorHeight" type="range" min="2" max="6" step="0.5" />
         </label>
       </div>
     </aside>
@@ -352,6 +478,28 @@ onUnmounted(() => {
 
 .custom-outline-controls input {
   width: 100%;
+  margin: 0;
+}
+
+.night-controls {
+  display: grid;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(255 255 255 / 20%);
+}
+
+.night-controls input[type='range'] {
+  width: 100%;
+  margin: 0;
+}
+
+.selection-panel .checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkbox-row input {
   margin: 0;
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CityNightShaderScene from './components/CityNightShaderScene.vue'
+import RouteArrowShaderScene from './components/RouteArrowShaderScene.vue'
 </script>
 
 <template>
@@ -9,6 +9,6 @@ import CityNightShaderScene from './components/CityNightShaderScene.vue'
         <strong>Shader Lab</strong>
       </div>
     </header>
-    <CityNightShaderScene />
+    <RouteArrowShaderScene />
   </main>
 </template>

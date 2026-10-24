@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 
 import {
   ArcType,
@@ -7,6 +7,7 @@ import {
   Cartesian2,
   Cartesian3,
   Color,
+  Ellipsoid,
   GeometryInstance,
   HeadingPitchRange,
   LabelStyle,
@@ -21,6 +22,11 @@ import 'cesium/Build/Cesium/Widgets/widgets.css'
 import directionalArrowsMaterialSource from '../shader-demos/demo03/directionalArrows.glsl?raw'
 
 const container = ref<HTMLDivElement | null>(null)
+const arrowRepeat = ref(12.0)
+const arrowSpeed = ref(0.22)
+const arrowColor = ref('#d8fbff')
+const MAX_ROUTE_SEGMENT_LENGTH_METERS = 55.0
+const MAX_ROUTE_SEGMENT_ANGLE = MAX_ROUTE_SEGMENT_LENGTH_METERS / Ellipsoid.WGS84.maximumRadius
 
 const TEST_ROUTE_COORDINATES = [
   114.04780, 22.54120, 35.0,
@@ -41,13 +47,14 @@ function addRouteLayer(
   const geometry = new PolylineGeometry({
     positions,
     width: config.width,
-    arcType: ArcType.NONE,
+    arcType: ArcType.GEODESIC,
+    granularity: MAX_ROUTE_SEGMENT_ANGLE,
     vertexFormat: PolylineMaterialAppearance.VERTEX_FORMAT,
   })
 
   return viewer.scene.primitives.add(
     new Primitive({
-      geometryInstances: new GeometryInstance({ 
+      geometryInstances: new GeometryInstance({
         geometry,
         id: config.id,
       }),
@@ -114,30 +121,31 @@ function initializeScene(containerEl: HTMLElement): () => void {
 
   const positions = Cartesian3.fromDegreesArrayHeights([...TEST_ROUTE_COORDINATES])
 
-  // 底层：静态深蓝底
-  addRouteLayer(viewer, positions, {
-    width: 14.0,
-    material: Material.fromType('Color', {
-      color: Color.fromCssColorString('#12314a').withAlpha(0.96),
-    }),
-    id: 'demo03-base-route',
-  })
-
-  // 上层：流动箭头
   const arrowMaterial = new Material({
     fabric: {
       source: directionalArrowsMaterialSource,
       uniforms: {
         u_time: 0.0,
-        u_repeat: 12.0,
-        u_speed: 0.22,
-        u_arrowColor: Color.fromCssColorString('#35e6ff'),
+        u_repeat: arrowRepeat.value,
+        u_speed: arrowSpeed.value,
+        u_arrowColor: Color.fromCssColorString(arrowColor.value),
       },
     },
     translucent: true,
   })
+
+  const stopArrowRepeatWatch = watch(arrowRepeat, (value) => {
+    arrowMaterial.uniforms.u_repeat = value
+  })
+  const stopArrowSpeedWatch = watch(arrowSpeed, (value) => {
+    arrowMaterial.uniforms.u_speed = value
+  })
+  const stopArrowColorWatch = watch(arrowColor, (value) => {
+    arrowMaterial.uniforms.u_arrowColor = Color.fromCssColorString(value)
+  })
+
   addRouteLayer(viewer, positions, {
-    width: 22.0,
+    width: 24.0,
     material: arrowMaterial,
     id: 'arrow-overlay',
   })
@@ -156,6 +164,9 @@ function initializeScene(containerEl: HTMLElement): () => void {
   })
 
   return () => {
+    stopArrowRepeatWatch()
+    stopArrowSpeedWatch()
+    stopArrowColorWatch()
     stopPreRender()
     if (!viewer.isDestroyed()) {
       viewer.destroy()
@@ -180,6 +191,21 @@ onUnmounted(() => {
 
     <div class="route-note">
       <span><i class="start-dot" />起点　→　终点<i class="end-dot" /></span>
+
+      <label class="parameter-control">
+        <span>箭头数量 {{ arrowRepeat }}</span>
+        <input v-model.number="arrowRepeat" type="range" min="4" max="50" step="1" aria-label="箭头重复数量">
+      </label>
+
+      <label class="parameter-control">
+        <span>速度 {{ arrowSpeed.toFixed(2) }}</span>
+        <input v-model.number="arrowSpeed" type="range" min="0.05" max="5" step="0.05" aria-label="箭头移动速度">
+      </label>
+
+      <label class="parameter-control">
+        <span>颜色</span>
+        <input v-model="arrowColor" type="color" aria-label="箭头颜色">
+      </label>
     </div>
   </div>
 </template>
@@ -198,6 +224,7 @@ onUnmounted(() => {
   top: 12px;
   left: 12px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 14px;
   padding: 9px 12px;
@@ -229,5 +256,26 @@ onUnmounted(() => {
 .end-dot {
   margin-left: 5px;
   background: #ef4444;
+}
+
+.parameter-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.parameter-control input[type='range'] {
+  width: 120px;
+  margin: 0;
+}
+
+.parameter-control input[type='color'] {
+  width: 34px;
+  height: 24px;
+  padding: 1px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #ffffff;
+  cursor: pointer;
 }
 </style>

@@ -8,6 +8,7 @@ const demos = [
   { id: 'demo04', label: 'Demo 04 · 台风流线', component: defineAsyncComponent(() => import('./components/TyphoonShaderScene.vue')) },
   { id: 'demo05', label: 'Demo 05 · 数字孪生', component: defineAsyncComponent(() => import('./Vibe-Coding/Byte-Dance/byte-dance/DigitalTwinShaderScene.vue')) },
   { id: 'demo06', label: 'Demo 06 · 台风粒子', component: defineAsyncComponent(() => import('./components/TyphoonParticleScene.vue')) },
+  { id: 'ocean-current-study', label: '洋流学习 · 插件版', component: defineAsyncComponent(() => import('./ocean-current-study/OceanCurrentStudyScene.vue')) },
 ]
 const activeDemo = ref(new URLSearchParams(window.location.search).get('demo') || 'demo05')
 const currentDemo = computed(() => demos.find((demo) => demo.id === activeDemo.value) ?? demos[4]!)

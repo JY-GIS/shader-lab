@@ -5,15 +5,15 @@ import {
   ImageryLayer,
   TileMapServiceImageryProvider,
   Viewer,
+  Rectangle,
+  SingleTileImageryProvider,
+  TextureMagnificationFilter,
 } from 'cesium'
 import { WindLayer, type WindData } from 'cesium-wind-layer'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 
-type OceanJson = Pick<WindData, 'width' | 'height'> & {
-  bbox: [west: number, south: number, east: number, north: number]
-  u: { array: number[]; min: number; max: number }
-  v: { array: number[]; min: number; max: number }
-}
+import type { OceanJson } from './oceanData'
+import { createOceanSpeedImage } from './oceanSpeedRaster'
 
 const container = ref<HTMLDivElement | null>(null)
 let viewer: Viewer | undefined
@@ -67,6 +67,27 @@ layer = new WindLayer(viewer, windData, {
 })
 
     layer.zoomTo(0)
+
+    const halfLon = (east - west) / (data.width - 1) / 2
+    const halfLat = (north - south) / (data.height - 1) / 2
+    const rectangle = Rectangle.fromDegrees(
+      west - halfLon,
+      south - halfLat,
+      east + halfLon,
+      north + halfLat,
+    )
+
+    const provider = await SingleTileImageryProvider.fromUrl(
+      createOceanSpeedImage(data),
+      { rectangle },
+    )
+    if (request.signal.aborted) return
+
+    viewer.imageryLayers.add(new ImageryLayer(provider, {
+      alpha: 0.55,
+      // magnificationFilter: TextureMagnificationFilter.NEAREST,
+    }))
+
   } catch (error) {
     if (!request.signal.aborted) {
         console.error('读取洋流数据失败', error)

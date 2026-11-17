@@ -19,7 +19,8 @@ const container = ref<HTMLDivElement | null>(null)
 let viewer: Viewer | undefined
 let layer: WindLayer | undefined
 
-import oceanUrl from './ocean.json?url'
+import oceanUrl from './bohai-tide-frame-001.json?url'
+// import oceanUrl from './ocean.json?url'
 const request = new AbortController()
 
 onMounted(async () => {
@@ -27,11 +28,11 @@ onMounted(async () => {
   if (!element) return
 
   viewer = new Viewer(element, {
-    baseLayer: ImageryLayer.fromProviderAsync(
-      TileMapServiceImageryProvider.fromUrl(
-        buildModuleUrl('Assets/Textures/NaturalEarthII'),
-      ),
-    ),
+    // baseLayer: ImageryLayer.fromProviderAsync(
+    //   TileMapServiceImageryProvider.fromUrl(
+    //     buildModuleUrl('Assets/Textures/NaturalEarthII'),
+    //   ),
+    // ),
     baseLayerPicker: false,
     geocoder: false,
     animation: false,
@@ -59,8 +60,10 @@ onMounted(async () => {
 layer = new WindLayer(viewer, windData, {
   flipY: true,
   particleHeight: 10,
-  speedFactor: 8,
-  colors: ['#45e6ff'],
+  speedFactor: 3,
+  lineWidth: { min: 0.5, max: 1 },
+  lineLength: { min: 5, max: 30 },
+  colors: ['#ccc'],
 })
 
     layer.zoomTo(0)

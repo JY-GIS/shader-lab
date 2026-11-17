@@ -14,10 +14,13 @@ import 'cesium/Build/Cesium/Widgets/widgets.css'
 
 import type { OceanJson } from './oceanData'
 import { createOceanSpeedImage } from './oceanSpeedRaster'
+import { applyOceanTrailStyle } from './oceanTrailStyle'
 import OceanCurrentControls from './OceanCurrentControls.vue'
 
 const container = ref<HTMLDivElement | null>(null)
 const panelOptions = shallowRef<WindLayerOptions>()
+const screenSizedTrails = ref(false)
+const zoomAdaptive = ref(true)
 let viewer: Viewer | undefined
 let layer: WindLayer | undefined
 
@@ -30,6 +33,10 @@ function updateLayerOptions(changes: Partial<WindLayerOptions>) {
   if (!layer || !panelOptions.value) return
   layer.updateOptions(changes)
   panelOptions.value = { ...panelOptions.value, ...changes }
+}
+
+function zoomToOverview() {
+  layer?.zoomTo(0)
 }
 
 onMounted(async () => {
@@ -46,6 +53,7 @@ onMounted(async () => {
     geocoder: false,
     animation: false,
     timeline: false,
+    navigationInstructionsInitiallyVisible: false,
   })
   try {
     const response = await fetch(oceanUrl, { signal: request.signal })
@@ -69,12 +77,25 @@ onMounted(async () => {
     layer = new WindLayer(viewer, windData, {
       flipY: true,
       particleHeight: 10,
-      speedFactor: 3,
+      speedFactor: 2.4,
+      particlesTextureSize: 112,
       lineWidth: { min: 2, max: 3 },
       lineLength: { min: 50, max: 150 },
-      domain: { min: 0, max: 1.85 },
-      colors: ['#cccccc'],
+      domain: { min: 0, max: 0.9 },
+      colors: ['#e4f6ff'],
+      useViewerBounds: true,
     })
+    zoomToOverview()
+    screenSizedTrails.value = applyOceanTrailStyle(layer, () => zoomAdaptive.value)
+    if (screenSizedTrails.value) {
+      layer.updateOptions({
+        lineWidth: { min: 1.3, max: 2.1 },
+        lineLength: { min: 12, max: 25 },
+      })
+    } else {
+      console.warn('当前 cesium-wind-layer 版本无法启用屏幕像素尾迹。')
+    }
+
     panelOptions.value = {
       ...layer.options,
       displayRange: {
@@ -82,8 +103,6 @@ onMounted(async () => {
         max: layer.windData.speed.max ?? 1.85,
       },
     }
-
-    layer.zoomTo(0)
 
     const halfLon = (east - west) / (data.width - 1) / 2
     const halfLat = (north - south) / (data.height - 1) / 2
@@ -101,7 +120,7 @@ onMounted(async () => {
     if (request.signal.aborted) return
 
     viewer.imageryLayers.add(new ImageryLayer(provider, {
-      alpha: 0.55,
+      alpha: 0.48,
       // magnificationFilter: TextureMagnificationFilter.NEAREST,
     }))
 
@@ -124,8 +143,11 @@ onBeforeUnmount(() => {
     <div ref="container" class="cesium-container"></div>
     <OceanCurrentControls
       v-if="panelOptions"
+      v-model:zoom-adaptive="zoomAdaptive"
       :options="panelOptions"
+      :screen-sized-trails="screenSizedTrails"
       @update-options="updateLayerOptions"
+      @zoom-to-overview="zoomToOverview"
     />
   </div>
 </template>

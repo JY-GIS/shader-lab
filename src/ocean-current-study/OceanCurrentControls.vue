@@ -2,8 +2,12 @@
 import { ref } from 'vue'
 import type { WindLayerOptions } from 'cesium-wind-layer'
 
-const props = defineProps<{ options: WindLayerOptions }>()
-const emit = defineEmits<{ updateOptions: [changes: Partial<WindLayerOptions>] }>()
+const props = defineProps<{ options: WindLayerOptions; screenSizedTrails: boolean }>()
+const zoomAdaptive = defineModel<boolean>('zoomAdaptive', { required: true })
+const emit = defineEmits<{
+  updateOptions: [changes: Partial<WindLayerOptions>]
+  zoomToOverview: []
+}>()
 const initialOptions = props.options
 
 type NumberKey = 'particleHeight' | 'speedFactor' | 'particlesTextureSize' | 'dropRate' | 'dropRateBump'
@@ -100,6 +104,13 @@ function changeColor(index: number, event: Event) {
   <details class="ocean-controls" open>
     <summary>洋流控制</summary>
     <div class="controls-body">
+      <div class="view-controls">
+        <button type="button" @click="emit('zoomToOverview')">回到全景</button>
+        <label v-if="screenSizedTrails">
+          <input v-model="zoomAdaptive" type="checkbox" />
+          随缩放调整尾迹
+        </label>
+      </div>
       <div class="switches">
         <label v-for="toggle in switches" :key="toggle.key">
           <input
@@ -157,14 +168,14 @@ function changeColor(index: number, event: Event) {
       <small class="density-note">最多 {{ (numberValue('particlesTextureSize') ** 2).toLocaleString() }} 个粒子 · 松手应用密度</small>
 
       <fieldset v-for="field in rangeFields" :key="field.key">
-        <legend>{{ field.label }}</legend>
+        <legend>{{ field.label }}{{ screenSizedTrails && (field.key === 'lineWidth' || field.key === 'lineLength') ? ' (全景 px)' : '' }}</legend>
         <label v-for="edge in edges" :key="edge.key" class="slider">
           <span>{{ edge.label }}</span>
           <input
             type="range"
             :aria-label="`${field.label} ${edge.label}`"
             :min="field.min"
-            :max="field.max"
+            :max="screenSizedTrails && field.key === 'lineLength' ? 60 : field.max"
             :step="field.step"
             :value="rangeValue(field, edge.key)"
             @input="changeRange(field, edge.key, $event)"
@@ -206,6 +217,9 @@ summary {
 }
 
 .controls-body { display: grid; gap: 8px; padding: 10px 12px; }
+.view-controls, .view-controls label { display: flex; align-items: center; gap: 6px; }
+.view-controls { justify-content: space-between; }
+.view-controls button { color: inherit; background: #213951; border: 1px solid #54718a; border-radius: 4px; padding: 4px 7px; font: inherit; cursor: pointer; }
 .switches { display: grid; gap: 5px; }
 .switches label, .color-row, .swatches { display: flex; align-items: center; gap: 6px; }
 .color-row { flex-wrap: wrap; }

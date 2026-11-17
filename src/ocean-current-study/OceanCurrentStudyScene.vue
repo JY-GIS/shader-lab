@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import {
   buildModuleUrl,
   ImageryLayer,
@@ -9,19 +9,28 @@ import {
   SingleTileImageryProvider,
   TextureMagnificationFilter,
 } from 'cesium'
-import { WindLayer, type WindData } from 'cesium-wind-layer'
+import { WindLayer, type WindData, type WindLayerOptions } from 'cesium-wind-layer'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 
 import type { OceanJson } from './oceanData'
 import { createOceanSpeedImage } from './oceanSpeedRaster'
+import OceanCurrentControls from './OceanCurrentControls.vue'
 
 const container = ref<HTMLDivElement | null>(null)
+const panelOptions = shallowRef<WindLayerOptions>()
 let viewer: Viewer | undefined
 let layer: WindLayer | undefined
 
-import oceanUrl from './bohai-tide-frame-001.json?url'
+import oceanUrl from './china-circulation-frame-001.json?url'
+// import oceanUrl from './bohai-tide-frame-001.json?url'
 // import oceanUrl from './ocean.json?url'
 const request = new AbortController()
+
+function updateLayerOptions(changes: Partial<WindLayerOptions>) {
+  if (!layer || !panelOptions.value) return
+  layer.updateOptions(changes)
+  panelOptions.value = { ...panelOptions.value, ...changes }
+}
 
 onMounted(async () => {
   const element = container.value
@@ -57,14 +66,22 @@ onMounted(async () => {
         v: { ...data.v, array: new Float32Array(data.v.array) },
     }
 
-layer = new WindLayer(viewer, windData, {
-  flipY: true,
-  particleHeight: 10,
-  speedFactor: 3,
-  lineWidth: { min: 0.5, max: 1 },
-  lineLength: { min: 5, max: 30 },
-  colors: ['#ccc'],
-})
+    layer = new WindLayer(viewer, windData, {
+      flipY: true,
+      particleHeight: 10,
+      speedFactor: 3,
+      lineWidth: { min: 2, max: 3 },
+      lineLength: { min: 50, max: 150 },
+      domain: { min: 0, max: 1.85 },
+      colors: ['#cccccc'],
+    })
+    panelOptions.value = {
+      ...layer.options,
+      displayRange: {
+        min: layer.windData.speed.min ?? 0,
+        max: layer.windData.speed.max ?? 1.85,
+      },
+    }
 
     layer.zoomTo(0)
 
@@ -103,5 +120,20 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="container" class="cesium-container"></div>
+  <div class="ocean-scene">
+    <div ref="container" class="cesium-container"></div>
+    <OceanCurrentControls
+      v-if="panelOptions"
+      :options="panelOptions"
+      @update-options="updateLayerOptions"
+    />
+  </div>
 </template>
+
+<style scoped>
+.ocean-scene {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+</style>

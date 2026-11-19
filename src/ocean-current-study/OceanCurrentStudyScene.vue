@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import {
   buildModuleUrl,
   ImageryLayer,
@@ -29,7 +29,9 @@ let speedLayer: ImageryLayer | undefined
 const frames: OceanFrame[] = frameIndex.frames
 const currentIndex = ref(-1)
 const loading = ref(false)
+const loadingIndex = ref(0)
 const frameError = ref('')
+const playing = ref(false)
 
 const frameUrls = import.meta.glob<string>('./ocean-frames/frame-*.json', {
   query: '?url',
@@ -37,6 +39,28 @@ const frameUrls = import.meta.glob<string>('./ocean-frames/frame-*.json', {
   eager: true,
 })
 let request: AbortController | undefined
+
+// 每帧显示五秒后才请求下一帧，暂停或离开页面时清除计时器。
+watch([playing, loading, currentIndex, frameError], (_, __, onCleanup) => {
+  if (!playing.value || loading.value) return
+  if (frameError.value || currentIndex.value >= frames.length - 1) {
+    playing.value = false
+    return
+  }
+  const timer = window.setTimeout(() => {
+    loadFrame(currentIndex.value + 1)
+  }, 5000)
+  onCleanup(() => window.clearTimeout(timer))
+})
+
+async function togglePlayback() {
+  if (playing.value) {
+    playing.value = false
+    return
+  }
+  if (currentIndex.value === frames.length - 1) await loadFrame(0)
+  if (!frameError.value) playing.value = true
+}
 
 function updateLayerOptions(changes: Partial<WindLayerOptions>) {
   if (!layer || !panelOptions.value) return
@@ -73,6 +97,7 @@ async function loadFrame(index: number) {
   const pending = new AbortController()
   request = pending
   loading.value = true
+  loadingIndex.value = index
   frameError.value = ''
   try {
     const url = frameUrls[`./ocean-frames/${frames[index].file}`]
@@ -186,7 +211,11 @@ onBeforeUnmount(() => {
       :frames="frames"
       :current-index="currentIndex"
       :loading="loading"
+      :loading-index="loadingIndex"
       :error="frameError"
+      :playing="playing"
+      @toggle-playback="togglePlayback"
+      @pause="playing = false"
       @select="loadFrame"
     />
   </div>

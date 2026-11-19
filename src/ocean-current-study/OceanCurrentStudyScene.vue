@@ -39,6 +39,11 @@ const frameUrls = import.meta.glob<string>('./ocean-frames/frame-*.json', {
   eager: true,
 })
 let request: AbortController | undefined
+// 只缓存 CPU 侧的数据和底图提供器，不保留每帧的 GPU 图层。
+const frameCache = new Map<number, {
+  windData: WindData
+  provider: SingleTileImageryProvider
+}>()
 
 // 每帧显示五秒后才请求下一帧，暂停或离开页面时清除计时器。
 watch([playing, loading, currentIndex, frameError], (_, __, onCleanup) => {
@@ -100,40 +105,47 @@ async function loadFrame(index: number) {
   loadingIndex.value = index
   frameError.value = ''
   try {
-    const url = frameUrls[`./ocean-frames/${frames[index].file}`]
-    if (!url) throw new Error('找不到对应时刻的数据文件')
-    const response = await fetch(url, { signal: pending.signal })
-    if (!response.ok) {
-        throw new Error(`读取海流数据失败：HTTP ${response.status}`)
+    let cached = frameCache.get(index)
+    if (!cached) {
+      const url = frameUrls[`./ocean-frames/${frames[index].file}`]
+      if (!url) throw new Error('找不到对应时刻的数据文件')
+      const response = await fetch(url, { signal: pending.signal })
+      if (!response.ok) {
+          throw new Error(`读取海流数据失败：HTTP ${response.status}`)
+      }
+
+      const data: OceanJson = await response.json()
+      if (pending.signal.aborted) return
+
+      const [west, south, east, north] = data.bbox
+
+      const windData: WindData = {
+          width: data.width,
+          height: data.height,
+          bounds: { west, south, east, north },
+          u: { ...data.u, array: new Float32Array(data.u.array) },
+          v: { ...data.v, array: new Float32Array(data.v.array) },
+      }
+
+      const halfLon = (east - west) / (data.width - 1) / 2
+      const halfLat = (north - south) / (data.height - 1) / 2
+      const rectangle = Rectangle.fromDegrees(
+        west - halfLon,
+        south - halfLat,
+        east + halfLon,
+        north + halfLat,
+      )
+
+      const provider = await SingleTileImageryProvider.fromUrl(
+        createOceanSpeedImage(data),
+        { rectangle },
+      )
+      if (pending.signal.aborted) return
+
+      cached = { windData, provider }
+      frameCache.set(index, cached)
     }
-
-    const data: OceanJson = await response.json()
-    if (pending.signal.aborted) return
-
-    const [west, south, east, north] = data.bbox
-
-    const windData: WindData = {
-        width: data.width,
-        height: data.height,
-        bounds: { west, south, east, north },
-        u: { ...data.u, array: new Float32Array(data.u.array) },
-        v: { ...data.v, array: new Float32Array(data.v.array) },
-    }
-
-    const halfLon = (east - west) / (data.width - 1) / 2
-    const halfLat = (north - south) / (data.height - 1) / 2
-    const rectangle = Rectangle.fromDegrees(
-      west - halfLon,
-      south - halfLat,
-      east + halfLon,
-      north + halfLat,
-    )
-
-    const provider = await SingleTileImageryProvider.fromUrl(
-      createOceanSpeedImage(data),
-      { rectangle },
-    )
-    if (pending.signal.aborted) return
+    const { windData, provider } = cached
 
     if (layer) {
       layer.updateWindData(windData)
@@ -191,6 +203,7 @@ async function loadFrame(index: number) {
 
 onBeforeUnmount(() => {
   request?.abort()
+  frameCache.clear()
   layer?.destroy()
   viewer?.destroy()
 })

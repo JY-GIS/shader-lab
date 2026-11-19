@@ -1,0 +1,104 @@
+{
+  "frames": [
+    {
+      "time": "2026-11-15T00:00:00Z",
+      "file": "frame-000.json"
+    },
+    {
+      "time": "2026-11-15T01:00:00Z",
+      "file": "frame-001.json"
+    },
+    {
+      "time": "2026-11-15T02:00:00Z",
+      "file": "frame-002.json"
+    },
+    {
+      "time": "2026-11-15T03:00:00Z",
+      "file": "frame-003.json"
+    },
+    {
+      "time": "2026-11-15T04:00:00Z",
+      "file": "frame-004.json"
+    },
+    {
+      "time": "2026-11-15T05:00:00Z",
+      "file": "frame-005.json"
+    },
+    {
+      "time": "2026-11-15T06:00:00Z",
+      "file": "frame-006.json"
+    },
+    {
+      "time": "2026-11-15T07:00:00Z",
+      "file": "frame-007.json"
+    },
+    {
+      "time": "2026-11-15T08:00:00Z",
+      "file": "frame-008.json"
+    },
+    {
+      "time": "2026-11-15T09:00:00Z",
+      "file": "frame-009.json"
+    },
+    {
+      "time": "2026-11-15T10:00:00Z",
+      "file": "frame-010.json"
+    },
+    {
+      "time": "2026-11-15T11:00:00Z",
+      "file": "frame-011.json"
+    },
+    {
+      "time": "2026-11-15T12:00:00Z",
+      "file": "frame-012.json"
+    },
+    {
+      "time": "2026-11-15T13:00:00Z",
+      "file": "frame-013.json"
+    },
+    {
+      "time": "2026-11-15T14:00:00Z",
+      "file": "frame-014.json"
+    },
+    {
+      "time": "2026-11-15T15:00:00Z",
+      "file": "frame-015.json"
+    },
+    {
+      "time": "2026-11-15T16:00:00Z",
+      "file": "frame-016.json"
+    },
+    {
+      "time": "2026-11-15T17:00:00Z",
+      "file": "frame-017.json"
+    },
+    {
+      "time": "2026-11-15T18:00:00Z",
+      "file": "frame-018.json"
+    },
+    {
+      "time": "2026-11-15T19:00:00Z",
+      "file": "frame-019.json"
+    },
+    {
+      "time": "2026-11-15T20:00:00Z",
+      "file": "frame-020.json"
+    },
+    {
+      "time": "2026-11-15T21:00:00Z",
+      "file": "frame-021.json"
+    },
+    {
+      "time": "2026-11-15T22:00:00Z",
+      "file": "frame-022.json"
+    },
+    {
+      "time": "2026-11-15T23:00:00Z",
+      "file": "frame-023.json"
+    },
+    {
+      "time": "2026-11-16T00:00:00Z",
+      "file": "frame-024.json"
+    }
+  ]
+}

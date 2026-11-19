@@ -12,10 +12,12 @@ import {
 import { WindLayer, type WindData, type WindLayerOptions } from 'cesium-wind-layer'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
 
-import type { OceanJson } from './oceanData'
+import type { OceanJson, OceanFrame } from './oceanData'
 import { createOceanSpeedImage } from './oceanSpeedRaster'
 import { applyOceanTrailStyle } from './oceanTrailStyle'
 import OceanCurrentControls from './OceanCurrentControls.vue'
+import OceanTimeSlider from './OceanTimeSlider.vue'
+import frameIndex from './ocean-frames/index.json'
 
 const container = ref<HTMLDivElement | null>(null)
 const panelOptions = shallowRef<WindLayerOptions>()
@@ -23,11 +25,18 @@ const screenSizedTrails = ref(false)
 const zoomAdaptive = ref(true)
 let viewer: Viewer | undefined
 let layer: WindLayer | undefined
+let speedLayer: ImageryLayer | undefined
+const frames: OceanFrame[] = frameIndex.frames
+const currentIndex = ref(-1)
+const loading = ref(false)
+const frameError = ref('')
 
-import oceanUrl from './china-circulation-frame-001.json?url'
-// import oceanUrl from './bohai-tide-frame-001.json?url'
-// import oceanUrl from './ocean.json?url'
-const request = new AbortController()
+const frameUrls = import.meta.glob<string>('./ocean-frames/frame-*.json', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+})
+let request: AbortController | undefined
 
 function updateLayerOptions(changes: Partial<WindLayerOptions>) {
   if (!layer || !panelOptions.value) return
@@ -55,14 +64,26 @@ onMounted(async () => {
     timeline: false,
     navigationInstructionsInitiallyVisible: false,
   })
+  await loadFrame(0)
+})
+
+async function loadFrame(index: number) {
+  if (!viewer || !frames[index]) return
+  request?.abort()
+  const pending = new AbortController()
+  request = pending
+  loading.value = true
+  frameError.value = ''
   try {
-    const response = await fetch(oceanUrl, { signal: request.signal })
+    const url = frameUrls[`./ocean-frames/${frames[index].file}`]
+    if (!url) throw new Error('找不到对应时刻的数据文件')
+    const response = await fetch(url, { signal: pending.signal })
     if (!response.ok) {
-        throw new Error(`读取 ocean.json 失败：HTTP ${response.status}`)
+        throw new Error(`读取海流数据失败：HTTP ${response.status}`)
     }
 
     const data: OceanJson = await response.json()
-    if (request.signal.aborted) return
+    if (pending.signal.aborted) return
 
     const [west, south, east, north] = data.bbox
 
@@ -72,36 +93,6 @@ onMounted(async () => {
         bounds: { west, south, east, north },
         u: { ...data.u, array: new Float32Array(data.u.array) },
         v: { ...data.v, array: new Float32Array(data.v.array) },
-    }
-
-    layer = new WindLayer(viewer, windData, {
-      flipY: true,
-      particleHeight: 10,
-      speedFactor: 2.4,
-      particlesTextureSize: 112,
-      lineWidth: { min: 2, max: 3 },
-      lineLength: { min: 50, max: 150 },
-      domain: { min: 0, max: 0.9 },
-      colors: ['#e4f6ff'],
-      useViewerBounds: true,
-    })
-    zoomToOverview()
-    screenSizedTrails.value = applyOceanTrailStyle(layer, () => zoomAdaptive.value)
-    if (screenSizedTrails.value) {
-      layer.updateOptions({
-        lineWidth: { min: 1.3, max: 2.1 },
-        lineLength: { min: 12, max: 25 },
-      })
-    } else {
-      console.warn('当前 cesium-wind-layer 版本无法启用屏幕像素尾迹。')
-    }
-
-    panelOptions.value = {
-      ...layer.options,
-      displayRange: {
-        min: layer.windData.speed.min ?? 0,
-        max: layer.windData.speed.max ?? 1.85,
-      },
     }
 
     const halfLon = (east - west) / (data.width - 1) / 2
@@ -117,22 +108,64 @@ onMounted(async () => {
       createOceanSpeedImage(data),
       { rectangle },
     )
-    if (request.signal.aborted) return
+    if (pending.signal.aborted) return
 
-    viewer.imageryLayers.add(new ImageryLayer(provider, {
+    if (layer) {
+      layer.updateWindData(windData)
+    } else {
+      layer = new WindLayer(viewer, windData, {
+        flipY: true,
+        particleHeight: 10,
+        speedFactor: 2.4,
+        particlesTextureSize: 112,
+        lineWidth: { min: 2, max: 3 },
+        lineLength: { min: 50, max: 150 },
+        domain: { min: 0, max: 0.9 },
+        colors: ['#e4f6ff'],
+        useViewerBounds: true,
+      })
+      zoomToOverview()
+      screenSizedTrails.value = applyOceanTrailStyle(layer, () => zoomAdaptive.value)
+      if (screenSizedTrails.value) {
+        layer.updateOptions({
+          lineWidth: { min: 1.3, max: 2.1 },
+          lineLength: { min: 12, max: 25 },
+        })
+      } else {
+        console.warn('当前 cesium-wind-layer 版本无法启用屏幕像素尾迹。')
+      }
+
+      panelOptions.value = {
+        ...layer.options,
+        displayRange: {
+          min: layer.windData.speed.min ?? 0,
+          max: layer.windData.speed.max ?? 1.85,
+        },
+      }
+      layer.updateOptions({ displayRange: panelOptions.value.displayRange })
+    }
+
+    const nextSpeedLayer = new ImageryLayer(provider, {
       alpha: 0.48,
       // magnificationFilter: TextureMagnificationFilter.NEAREST,
-    }))
+    })
+    viewer.imageryLayers.add(nextSpeedLayer)
+    if (speedLayer) viewer.imageryLayers.remove(speedLayer, true)
+    speedLayer = nextSpeedLayer
+    currentIndex.value = index
 
   } catch (error) {
-    if (!request.signal.aborted) {
-        console.error('读取洋流数据失败', error)
+    if (!pending.signal.aborted) {
+      frameError.value = error instanceof Error ? error.message : String(error)
+      console.error('读取洋流数据失败', error)
     }
+  } finally {
+    if (request === pending) loading.value = false
   }
-})
+}
 
 onBeforeUnmount(() => {
-  request.abort()
+  request?.abort()
   layer?.destroy()
   viewer?.destroy()
 })
@@ -148,6 +181,13 @@ onBeforeUnmount(() => {
       :screen-sized-trails="screenSizedTrails"
       @update-options="updateLayerOptions"
       @zoom-to-overview="zoomToOverview"
+    />
+    <OceanTimeSlider
+      :frames="frames"
+      :current-index="currentIndex"
+      :loading="loading"
+      :error="frameError"
+      @select="loadFrame"
     />
   </div>
 </template>
